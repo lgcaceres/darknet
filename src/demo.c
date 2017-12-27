@@ -9,6 +9,12 @@
 #include "demo.h"
 #include <sys/time.h>
 
+
+//my tracking
+#include "tracking.h"
+
+
+
 #define DEMO 1
 
 #ifdef OPENCV
@@ -32,6 +38,12 @@ static int running = 0;
 
 //numero de frame que extraje
 static int demo_num_frame = 0;
+//array de obj-tracking
+//probaremos con solo 50 objetos del tipo "tracking_obj" como maximo
+//static tracking_obj tracking_array_obj[50]={0};
+static tracking_obj **demo_tracking_array_obj;
+static int demo_tracking_tam_array_obj=20;
+static int demo_mythreshold = 0.6;
 
 static int demo_frame = 3;
 static int demo_detections = 0;
@@ -82,7 +94,8 @@ void *detect_in_thread(void *ptr)
     //draw_detections(display, demo_detections, demo_thresh, boxes, probs, 0, demo_names, demo_alphabet, demo_classes);
     //FILE *fp;
     //my_draw_detections(display, demo_detections, demo_thresh, boxes, probs, 0, demo_names, demo_alphabet, demo_classes, demo_num_frame);
-    my_draw_detections2(display, demo_detections, demo_thresh, boxes, probs, 0, demo_names, demo_alphabet, demo_classes, demo_num_frame,fp);
+    //my_draw_detections2(display, demo_detections, demo_thresh, boxes, probs, 0, demo_names, demo_alphabet, demo_classes, demo_num_frame,fp);
+    my_draw_detections3(display, demo_detections, demo_thresh, boxes, probs, 0, demo_names, demo_alphabet, demo_classes, demo_num_frame, fp, demo_tracking_array_obj, demo_tracking_tam_array_obj,demo_mythreshold);
 
 
     demo_index = (demo_index + 1)%demo_frame;
@@ -136,10 +149,14 @@ void *detect_loop(void *ptr)
 }
 //demo(cfg, weights, thresh, cam_index, filename, names, classes, frame_skip, prefix, avg, hier_thresh, width, height, fps, fullscreen);
 
+
+
+
 void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const char *filename, char **names, int classes, int delay, char *prefix, int avg_frames, float hier, int w, int h, int frames, int fullscreen)
 {
     //demo_num_frame = 0
     fp = fopen("test22.txt", "a");
+    demo_tracking_array_obj = (tracking_obj**)calloc(20,sizeof(tracking_obj*));
     //fprintf(fp, "demo_num_frame");
     
     demo_frame       = avg_frames;

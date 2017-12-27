@@ -10,6 +10,12 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+
+//my tracking
+#include "tracking.h"
+
+
+
 int windows = 0;
 
 float colors[6][3] = { {1,0,1}, {0,0,1},{0,1,1},{0,1,0},{1,1,0},{1,0,0} };
@@ -490,6 +496,7 @@ void my_draw_detections2(image im, int num, float thresh, box *boxes, float **pr
 
     for(i = 0; i < num; ++i)
     {
+        
         char labelstr[4096] = {0};
         int class = -1;
         //classes=cantidada de clases del entrenamiento 
@@ -601,6 +608,182 @@ void my_draw_detections2(image im, int num, float thresh, box *boxes, float **pr
     }
     fprintf(fp, "-----------------------\n");
 }
+
+
+double compare_tracking_obj(tracking_obj* p1,tracking_obj* p2){
+    if(p1->x!=p2->x)
+        return 0.25;
+    return 0.8;
+}
+
+
+int is_empty_tracking_array_obj(tracking_obj** array,int tam){
+    int i;
+    for(i=0;i<tam;i++){
+        if(array[i]!=NULL){
+            return 0;
+        }
+    }
+    return 1;
+}
+
+void insert_tracking_array_obj(tracking_obj* temp ,tracking_obj** array,int tam, double mythreshold){
+    int i;
+    for(i=0;i<tam;i++){
+        if(array[i]!=NULL){
+            //continue;
+            array[i] = temp;
+        }else{
+            if(mythreshold < compare_tracking_obj(array[i],temp)){
+                //array[i]=
+            }
+        }
+    }
+    return;
+}
+
+
+void my_draw_detections3(image im, int num, float thresh, box *boxes, float **probs, float **masks, char **names, image **alphabet, int classes, int num_frame,FILE *fp, tracking_obj **tracking_array_obj, int tracking_tam_array, double mythreshold)
+{
+    printf("1demo_num_frame: %d \n", num_frame );
+    printf("1demo_detections: %d \n", num );
+    printf("1tamano demo_names: %d \n", sizeof(names)/sizeof(names[0]) );
+    int i,j;
+    //num=600;
+    char buff[200]={0};
+    fprintf(fp, "///////////////////////\n");
+    sprintf(buff,"Frame numero: %d\n",num_frame);
+    fprintf(fp, buff);
+
+    
+
+    for(i = 0; i < num; ++i)
+    {    
+        char labelstr[4096] = {0};
+        int class = -1;
+        //classes=cantidada de clases del entrenamiento 
+        //en este caso 80
+        float thresh_temp = 0.0;
+        char  labelstr_high[30] = {0};
+
+        for(j = 0; j < classes; ++j){
+            if (probs[i][j] > thresh){
+                if(thresh_temp < thresh){
+                    thresh_temp=thresh;
+                    sprintf(labelstr_high, "%s", names[j] );
+                }
+                if (class < 0) {
+                    strcat(labelstr, names[j]);
+                    class = j;
+                } else {
+                    strcat(labelstr, ", ");
+                    strcat(labelstr, names[j]);
+                }
+                //modificacion!!!
+                //printf("%s: %.0f%%\n", names[j], probs[i][j]*100);
+                char strtemp[]="person";
+                if(0==strcmp(names[j],strtemp))
+                    printf("%s: %.0f%%\n", names[j], probs[i][j]*100);
+            }
+        }
+        //##if(labelstr[0])
+        //##    printf("::     %s     ::\n", labelstr_high);
+
+        //labelstr_high: solo tiene la etiqueta de mayor thresh 
+        //ahora puedo dibujar solo los boxes[i] que coincidan con labelstr_high
+        char strtemp[]="person";
+    
+        if(class >= 0 && (0==strcmp(labelstr_high,strtemp)) ){
+
+            if(is_empty_tracking_array_obj(tracking_array_obj,tracking_tam_array)){
+                //tracking_obj* temp = (tracking_obj*)malloc(sizeof(tracking_obj));
+                //temp->x=10;
+                //temp->y=10;
+                //tracking_array_obj[0] = temp;
+            }else{
+                //tracking_obj* temp = (tracking_obj*)malloc(sizeof(tracking_obj));
+                //temp->x=10;
+                //temp->y=10;
+                //insert_tracking_array_obj(temp,tracking_array_obj,tracking_tam_array, mythreshold);
+            }
+     
+            //int width = im.h * .1006; //test grosor linea recuadro (box)
+            int width = im.h * .006;
+
+            /*
+               if(0){
+               width = pow(prob, 1./2.)*10+1;
+               alphabet = 0;
+               }
+             */
+
+            //printf("%d %s: %.0f%%\n", i, names[class], prob*100);
+            int offset  = class*123457 % classes;
+            float red   = get_color(2,offset,classes);
+            float green = get_color(1,offset,classes);
+            float blue  = get_color(0,offset,classes);
+            float rgb[3];
+
+            //width = prob*20+2;
+            rgb[0] = red;
+            rgb[1] = green;
+            rgb[2] = blue;
+            box b = boxes[i];
+
+            int left  = (b.x-b.w/2.)*im.w;
+            int right = (b.x+b.w/2.)*im.w;
+            int top   = (b.y-b.h/2.)*im.h;
+            int bot   = (b.y+b.h/2.)*im.h;
+
+            if(left < 0) left = 0;
+            if(right > im.w-1) right = im.w-1;
+            if(top < 0) top = 0;
+            if(bot > im.h-1) bot = im.h-1;
+
+            sprintf(buff,"%s: (%d,%d) (%d,%d)\n",labelstr_high,left,top,right,bot);
+            fprintf(fp, buff);
+            //dibuja todos los rectagulos
+            //es totalmente independiente
+
+            draw_box_width(im, left, top, right, bot, width, red, green, blue);
+            //draw_box_width(im, 15, 15, 30, 30, width, 55, 33, 44);
+
+            //dibuja todos las etiquetas
+            //es totalmente independiente
+            if (alphabet) {
+                image label = get_label(alphabet, labelstr, (im.h*.03)/10);
+                draw_label(im, top + width, left, label, rgb);
+                free_image(label);
+                //##char strtemp[]="xxx, yyy, zzzz";
+                //##image label1 = get_label(alphabet, strtemp, (im.h*.03)/10);
+                //##draw_label(im, top + width, left, label1, rgb);
+                //##free_image(label1);
+            }
+
+            //float **masks
+            //      **masks = 0
+
+
+            //no es importante
+            //quitandolo no sucede nada
+            if (masks){
+                image mask         = float_to_image(14, 14, 1, masks[i]);
+                image resized_mask = resize_image(mask, b.w*im.w, b.h*im.h);
+                image tmask        = threshold_image(resized_mask, .5);
+                embed_image(tmask, im, left, top);
+                free_image(mask);
+                free_image(resized_mask);
+                free_image(tmask);
+            }
+            
+        }
+    }
+    fprintf(fp, "-----------------------\n");
+}
+
+
+
+
 
 
 
